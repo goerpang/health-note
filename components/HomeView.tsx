@@ -41,7 +41,8 @@ export default function HomeView({
           </button>
           <Link
             href="/mypage"
-            className="w-10 h-10 rounded-full flex items-center justify-center bg-section"
+            prefetch
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-section touch-manipulation active:opacity-70"
             aria-label="마이페이지"
           >
             <User size={18} className="text-sub" />
