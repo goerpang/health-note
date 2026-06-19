@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -27,13 +27,23 @@ export default function MemberForm({
   const [birthDate, setBirthDate] = useState(member?.birth_date ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 빠른 연타로 인한 중복 제출 방지 (state보다 먼저, 동기적으로 막음)
+  const submitting = useRef(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting.current) return; // 이미 처리 중이면 무시
+
     if (!name.trim()) {
       setError("이름을 입력해주세요");
       return;
     }
+    if (!birthDate) {
+      setError("생년월일을 입력해주세요");
+      return;
+    }
+
+    submitting.current = true;
     setLoading(true);
     setError(null);
     const supabase = createClient();
@@ -42,7 +52,7 @@ export default function MemberForm({
       name: name.trim(),
       emoji,
       gender,
-      birth_date: birthDate || null,
+      birth_date: birthDate,
     };
 
     const { error } =
@@ -50,26 +60,31 @@ export default function MemberForm({
         ? await supabase.from("members").insert({ ...payload, family_id: familyId })
         : await supabase.from("members").update(payload).eq("id", member!.id);
 
-    setLoading(false);
     if (error) {
       setError(error.message);
+      setLoading(false);
+      submitting.current = false; // 실패 시 재시도 가능하게 해제
       return;
     }
+    // 성공 시엔 화면을 떠나므로 해제 불필요
     router.push("/");
     router.refresh();
   }
 
   async function handleDelete() {
     if (!member) return;
+    if (submitting.current) return;
     if (!confirm(`${member.name}님의 정보를 삭제할까요? 검진 기록도 함께 삭제됩니다.`)) {
       return;
     }
+    submitting.current = true;
     setLoading(true);
     const supabase = createClient();
     const { error } = await supabase.from("members").delete().eq("id", member.id);
-    setLoading(false);
     if (error) {
       setError(error.message);
+      setLoading(false);
+      submitting.current = false;
       return;
     }
     router.push("/");
@@ -155,14 +170,14 @@ export default function MemberForm({
           </div>
         </div>
 
-        {/* 생년월일 */}
+        {/* 생년월일 (필수) */}
         <div>
-          <label className="text-sm font-semibold text-sub">생년월일 (선택)</label>
+          <label className="text-sm font-semibold text-sub">생년월일</label>
           <input
             type="date"
             value={birthDate ?? ""}
             onChange={(e) => setBirthDate(e.target.value)}
-            className="w-full mt-2 px-4 py-3.5 rounded-2xl bg-section text-ink outline-none focus:ring-2 focus:ring-brand"
+            className="w-full mt-2 px-4 min-h-[56px] rounded-2xl bg-section text-ink text-base outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
 
