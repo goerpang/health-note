@@ -59,10 +59,11 @@ export default function HomeView({
               <button
                 key={m.id}
                 onClick={() => setSelectedId(m.id)}
-                className="flex items-center gap-2 rounded-2xl shrink-0 transition"
+                className="flex items-center gap-2 rounded-2xl shrink-0 transition-transform touch-manipulation active:opacity-70"
                 style={{
                   background: isActive ? "#EFF6FF" : "#F8F9FB",
-                  padding: isActive ? "12px 18px" : "10px 16px",
+                  // 패딩은 고정 — 선택해도 옆 칩이 밀리지 않게 (헛터치 방지)
+                  padding: "11px 16px",
                   transform: isActive ? "scale(1.05)" : "scale(1)",
                 }}
               >
@@ -80,7 +81,8 @@ export default function HomeView({
           })}
           <Link
             href="/members/new"
-            className="flex items-center gap-1 px-4 py-2.5 rounded-2xl shrink-0 bg-section"
+            prefetch
+            className="flex items-center gap-1 px-4 py-2.5 rounded-2xl shrink-0 bg-section touch-manipulation active:opacity-70"
           >
             <Plus size={16} className="text-sub" />
             <span className="text-sm font-semibold text-sub">추가</span>
@@ -102,7 +104,8 @@ export default function HomeView({
             </p>
             <Link
               href="/members/new"
-              className="mt-5 px-6 py-3 rounded-2xl bg-brand text-white font-bold"
+              prefetch
+              className="mt-5 px-6 py-3 rounded-2xl bg-brand text-white font-bold touch-manipulation active:opacity-80"
             >
               + 구성원 추가하기
             </Link>
