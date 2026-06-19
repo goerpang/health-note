@@ -16,9 +16,11 @@ const quickMenu = [
 
 export default function HomeView({
   email,
+  familyName,
   members,
 }: {
   email: string;
+  familyName: string;
   members: Member[];
 }) {
   const router = useRouter();
@@ -43,7 +45,7 @@ export default function HomeView({
       <header className="px-5 pt-7 pb-4 flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-sub">{email}</p>
-          <h1 className="text-xl font-bold mt-0.5">우리 가족 건강 기록</h1>
+          <h1 className="text-xl font-bold mt-0.5">{familyName}</h1>
         </div>
         <div className="flex items-center gap-2">
           <button className="w-10 h-10 rounded-full flex items-center justify-center bg-section">
@@ -59,7 +61,8 @@ export default function HomeView({
         </div>
       </header>
 
-      {/* 구성원 칩 */}
+      {/* 구성원 칩 (구성원이 있을 때만 표시 — 없을 땐 아래 빈 상태의 큰 버튼 사용) */}
+      {members.length > 0 && (
       <div className="px-5 pb-2">
         <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
           {members.map((m) => {
@@ -96,6 +99,7 @@ export default function HomeView({
           </Link>
         </div>
       </div>
+      )}
 
       {members.length === 0 ? (
         /* 구성원이 아직 없을 때 */

@@ -18,6 +18,13 @@ export default async function Home() {
     .maybeSingle();
   if (!link) redirect("/onboarding");
 
+  // 가족 이름
+  const { data: family } = await supabase
+    .from("families")
+    .select("name")
+    .eq("id", link.family_id)
+    .maybeSingle();
+
   // 가족 구성원 목록 (RLS가 내 가족만 허용)
   const { data: members } = await supabase
     .from("members")
@@ -26,6 +33,10 @@ export default async function Home() {
     .order("created_at", { ascending: true });
 
   return (
-    <HomeView email={user.email ?? ""} members={(members as Member[]) ?? []} />
+    <HomeView
+      email={user.email ?? ""}
+      familyName={family?.name ?? "우리 가족"}
+      members={(members as Member[]) ?? []}
+    />
   );
 }
