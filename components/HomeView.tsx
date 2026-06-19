@@ -2,9 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Plus, ChevronRight, Bell, LogOut, Pencil } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { Plus, ChevronRight, Bell, User, Pencil } from "lucide-react";
 import type { Member } from "@/lib/types";
 
 const quickMenu = [
@@ -15,15 +13,12 @@ const quickMenu = [
 ];
 
 export default function HomeView({
-  email,
   familyName,
   members,
 }: {
-  email: string;
   familyName: string;
   members: Member[];
 }) {
-  const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(
     members[0]?.id ?? null
   );
@@ -32,32 +27,25 @@ export default function HomeView({
   const active =
     members.find((m) => m.id === selectedId) ?? members[0] ?? null;
 
-  async function signOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  }
-
   return (
     <div className="w-full min-h-screen pb-10 text-ink">
       {/* 헤더 */}
       <header className="px-5 pt-7 pb-4 flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-sub">{email}</p>
+          <p className="text-sm font-medium text-sub">우리 가족 건강 기록</p>
           <h1 className="text-xl font-bold mt-0.5">{familyName}</h1>
         </div>
         <div className="flex items-center gap-2">
           <button className="w-10 h-10 rounded-full flex items-center justify-center bg-section">
             <Bell size={20} className="text-sub" />
           </button>
-          <button
-            onClick={signOut}
+          <Link
+            href="/mypage"
             className="w-10 h-10 rounded-full flex items-center justify-center bg-section"
-            aria-label="로그아웃"
+            aria-label="마이페이지"
           >
-            <LogOut size={18} className="text-sub" />
-          </button>
+            <User size={18} className="text-sub" />
+          </Link>
         </div>
       </header>
 

@@ -34,7 +34,6 @@ export default async function Home() {
 
   return (
     <HomeView
-      email={user.email ?? ""}
       familyName={family?.name ?? "우리 가족"}
       members={(members as Member[]) ?? []}
     />
