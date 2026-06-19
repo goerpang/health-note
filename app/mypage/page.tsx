@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ChevronLeft, User, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import SignOutButton from "@/components/SignOutButton";
+import FamilyNameEditor from "@/components/FamilyNameEditor";
 
 export default async function MyPage() {
   const supabase = createClient();
@@ -10,6 +11,20 @@ export default async function MyPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  // 우리 가족 정보
+  const { data: link } = await supabase
+    .from("user_families")
+    .select("family_id")
+    .limit(1)
+    .maybeSingle();
+  const { data: family } = link
+    ? await supabase
+        .from("families")
+        .select("id, name")
+        .eq("id", link.family_id)
+        .maybeSingle()
+    : { data: null };
 
   return (
     <main className="min-h-screen pb-10">
@@ -31,6 +46,14 @@ export default async function MyPage() {
           <User size={40} className="text-brand" />
         </div>
       </div>
+
+      {/* 우리 가족 */}
+      {family && (
+        <div className="px-5 mb-6">
+          <p className="text-sm font-semibold text-sub mb-2">우리 가족</p>
+          <FamilyNameEditor familyId={family.id} initialName={family.name} />
+        </div>
+      )}
 
       {/* 내 정보 */}
       <div className="px-5">

@@ -25,7 +25,8 @@ export default function MemberForm({
   const [emoji, setEmoji] = useState(member?.emoji ?? "👨🏻");
   const [gender, setGender] = useState<Gender | null>(member?.gender ?? null);
   const [birthDate, setBirthDate] = useState(member?.birth_date ?? "");
-  const [loading, setLoading] = useState(false);
+  // 어떤 작업이 진행 중인지 (둘 다 버튼 비활성화 + 해당 버튼에 로딩 표시)
+  const [busy, setBusy] = useState<null | "save" | "delete">(null);
   const [error, setError] = useState<string | null>(null);
   // 빠른 연타로 인한 중복 제출 방지 (state보다 먼저, 동기적으로 막음)
   const submitting = useRef(false);
@@ -44,7 +45,7 @@ export default function MemberForm({
     }
 
     submitting.current = true;
-    setLoading(true);
+    setBusy("save");
     setError(null);
     const supabase = createClient();
 
@@ -62,7 +63,7 @@ export default function MemberForm({
 
     if (error) {
       setError(error.message);
-      setLoading(false);
+      setBusy(null);
       submitting.current = false; // 실패 시 재시도 가능하게 해제
       return;
     }
@@ -78,12 +79,12 @@ export default function MemberForm({
       return;
     }
     submitting.current = true;
-    setLoading(true);
+    setBusy("delete");
     const supabase = createClient();
     const { error } = await supabase.from("members").delete().eq("id", member.id);
     if (error) {
       setError(error.message);
-      setLoading(false);
+      setBusy(null);
       submitting.current = false;
       return;
     }
@@ -186,10 +187,14 @@ export default function MemberForm({
         {/* 저장 */}
         <button
           type="submit"
-          disabled={loading}
-          className="w-full py-3.5 rounded-2xl bg-brand text-white font-bold disabled:opacity-50"
+          disabled={busy !== null}
+          className="w-full py-3.5 rounded-2xl bg-brand text-white font-bold disabled:opacity-50 touch-manipulation"
         >
-          {loading ? "저장 중…" : mode === "create" ? "추가하기" : "저장"}
+          {busy === "save"
+            ? "저장 중…"
+            : mode === "create"
+            ? "추가하기"
+            : "저장"}
         </button>
 
         {/* 삭제 (수정 모드만) */}
@@ -197,10 +202,10 @@ export default function MemberForm({
           <button
             type="button"
             onClick={handleDelete}
-            disabled={loading}
-            className="w-full py-3 rounded-2xl text-bad font-semibold flex items-center justify-center gap-1.5 active:bg-section"
+            disabled={busy !== null}
+            className="w-full py-3 rounded-2xl text-bad font-semibold flex items-center justify-center gap-1.5 active:bg-section disabled:opacity-50 touch-manipulation"
           >
-            <Trash2 size={16} /> 구성원 삭제
+            <Trash2 size={16} /> {busy === "delete" ? "삭제 중…" : "구성원 삭제"}
           </button>
         )}
       </form>
