@@ -3,9 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Plus, ChevronRight, Bell, User, Pencil } from "lucide-react";
-import type { Member, CheckupRecord, CheckupItem } from "@/lib/types";
+import type { Member, RecordWithItems } from "@/lib/types";
 
-export type RecordWithItems = CheckupRecord & { checkup_items: CheckupItem[] };
+export type { RecordWithItems };
 
 // "2026-06-20" → "2026.06.20"
 function fmtDate(d: string) {
@@ -169,7 +169,11 @@ export default function HomeView({
             </div>
 
             {latest ? (
-              <div className="rounded-2xl p-5 bg-section">
+              <Link
+                href={`/records/${latest.id}`}
+                prefetch
+                className="block rounded-2xl p-5 bg-section active:opacity-80 touch-manipulation"
+              >
                 <p className="text-xs mb-4 text-sub">
                   {fmtDate(latest.record_date)} ·{" "}
                   {latest.hospital ?? "병원 미기재"}
@@ -205,7 +209,7 @@ export default function HomeView({
                     외 {latest.checkup_items.length - RECENT_ITEM_LIMIT}개 항목
                   </p>
                 )}
-              </div>
+              </Link>
             ) : (
               <div className="rounded-2xl p-8 bg-section flex flex-col items-center text-center">
                 <span className="text-3xl mb-2">🗂️</span>
@@ -235,7 +239,11 @@ export default function HomeView({
                         className="absolute -left-6 top-4 w-3 h-3 rounded-full ring-4 ring-white"
                         style={{ background: isCheckup ? "#3B82F6" : "#A78BFA" }}
                       />
-                      <div className="rounded-2xl p-4 flex items-center justify-between bg-section">
+                      <Link
+                        href={`/records/${r.id}`}
+                        prefetch
+                        className="rounded-2xl p-4 flex items-center justify-between bg-section active:opacity-80 touch-manipulation"
+                      >
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-bold truncate">
@@ -256,7 +264,7 @@ export default function HomeView({
                           </p>
                         </div>
                         <ChevronRight size={18} style={{ color: "#C5CBD6" }} />
-                      </div>
+                      </Link>
                     </div>
                   );
                 })}

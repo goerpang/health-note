@@ -61,3 +61,8 @@ export interface ItemDefinition {
   description: string | null;
   sort_order: number;
 }
+
+// 검진 기록 + 그 항목들 (조회/수정용)
+export interface RecordWithItems extends CheckupRecord {
+  checkup_items: CheckupItem[];
+}

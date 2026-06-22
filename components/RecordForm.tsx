@@ -1,11 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, X, Plus } from "lucide-react";
+import { ChevronLeft, X, Plus, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import ItemPicker from "@/components/ItemPicker";
-import type { Member, ItemDefinition } from "@/lib/types";
+import type { Member, ItemDefinition, RecordWithItems } from "@/lib/types";
 
 type FormItem = {
   key: number;
@@ -26,29 +26,54 @@ export default function RecordForm({
   members,
   definitions,
   initialMemberId,
+  mode = "create",
+  record,
 }: {
   members: Member[];
   definitions: ItemDefinition[];
   initialMemberId?: string;
+  mode?: "create" | "edit";
+  record?: RecordWithItems;
 }) {
   const router = useRouter();
-  const [type, setType] = useState<"checkup" | "single">("checkup");
+  const keyRef = useRef(1);
+
+  // 표준항목 코드 → 정상범위 (수정 시 표시용)
+  const rangeByCode = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const d of definitions) m.set(d.item_code, d.normal_range);
+    return m;
+  }, [definitions]);
+
+  const [type, setType] = useState<"checkup" | "single">(record?.type ?? "checkup");
   const [memberId, setMemberId] = useState(
-    members.find((m) => m.id === initialMemberId)?.id ?? members[0]?.id ?? ""
+    record?.member_id ??
+      members.find((m) => m.id === initialMemberId)?.id ??
+      members[0]?.id ??
+      ""
   );
-  const [recordDate, setRecordDate] = useState(todayStr());
-  const [hospital, setHospital] = useState("");
-  const [notes, setNotes] = useState("");
-  const [items, setItems] = useState<FormItem[]>([]);
+  const [recordDate, setRecordDate] = useState(record?.record_date ?? todayStr());
+  const [hospital, setHospital] = useState(record?.hospital ?? "");
+  const [notes, setNotes] = useState(record?.notes ?? "");
+  const [items, setItems] = useState<FormItem[]>(() =>
+    (record?.checkup_items ?? []).map((it) => ({
+      key: keyRef.current++,
+      item_code: it.item_code,
+      item_name: it.item_name,
+      value: it.value ?? "",
+      unit: it.unit ?? "",
+      is_abnormal: it.is_abnormal,
+      normal_range: it.item_code ? rangeByCode.get(it.item_code) ?? null : null,
+    }))
+  );
+
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<null | "save" | "delete">(null);
   const [error, setError] = useState<string | null>(null);
   const submitting = useRef(false);
-  const keyRef = useRef(1);
 
   function changeType(t: "checkup" | "single") {
     setType(t);
-    // 단일검사는 항목 1개만 — 초과분 정리
     if (t === "single") setItems((prev) => prev.slice(0, 1));
   }
 
@@ -97,56 +122,98 @@ export default function RecordForm({
       return setError("각 항목의 결과 값을 입력해주세요");
 
     submitting.current = true;
-    setBusy(true);
+    setBusy("save");
     setError(null);
     const supabase = createClient();
 
-    // 1) 기록 생성
-    const { data: record, error: recErr } = await supabase
-      .from("checkup_records")
-      .insert({
-        member_id: memberId,
-        type,
-        record_date: recordDate,
-        hospital: hospital.trim() || null,
-        notes: notes.trim() || null,
-      })
-      .select("id")
-      .single();
-
-    if (recErr || !record) {
-      setError(recErr?.message ?? "저장에 실패했어요");
-      setBusy(false);
-      submitting.current = false;
-      return;
-    }
-
-    // 2) 항목 저장
-    const { error: itemErr } = await supabase.from("checkup_items").insert(
+    const recordFields = {
+      member_id: memberId,
+      type,
+      record_date: recordDate,
+      hospital: hospital.trim() || null,
+      notes: notes.trim() || null,
+    };
+    const itemRows = (recordId: string) =>
       items.map((it) => ({
-        record_id: record.id,
+        record_id: recordId,
         item_code: it.item_code,
         item_name: it.item_name,
         value: it.value.trim(),
         unit: it.unit.trim() || null,
         is_abnormal: it.is_abnormal,
-      }))
-    );
+      }));
 
-    if (itemErr) {
-      // 항목 저장 실패 시 방금 만든 기록 롤백 (고아 기록 방지)
-      await supabase.from("checkup_records").delete().eq("id", record.id);
-      setError(itemErr.message);
-      setBusy(false);
-      submitting.current = false;
+    if (mode === "edit" && record) {
+      // 1) 기록 필드 수정
+      const { error: updErr } = await supabase
+        .from("checkup_records")
+        .update(recordFields)
+        .eq("id", record.id);
+      if (updErr) return fail(updErr.message);
+
+      // 2) 항목 교체: 새 항목 먼저 넣고 기존 항목 삭제 (실패 시 손실 방지)
+      const oldIds = (record.checkup_items ?? []).map((it) => it.id);
+      const { error: insErr } = await supabase
+        .from("checkup_items")
+        .insert(itemRows(record.id));
+      if (insErr) return fail(insErr.message);
+      if (oldIds.length)
+        await supabase.from("checkup_items").delete().in("id", oldIds);
+
+      router.push("/");
+      router.refresh();
       return;
     }
 
+    // 생성
+    const { data: created, error: recErr } = await supabase
+      .from("checkup_records")
+      .insert(recordFields)
+      .select("id")
+      .single();
+    if (recErr || !created) return fail(recErr?.message ?? "저장에 실패했어요");
+
+    const { error: itemErr } = await supabase
+      .from("checkup_items")
+      .insert(itemRows(created.id));
+    if (itemErr) {
+      await supabase.from("checkup_records").delete().eq("id", created.id);
+      return fail(itemErr.message);
+    }
+
+    router.push("/");
+    router.refresh();
+
+    function fail(msg: string) {
+      setError(msg);
+      setBusy(null);
+      submitting.current = false;
+    }
+  }
+
+  async function handleDelete() {
+    if (!record) return;
+    if (submitting.current) return;
+    if (!confirm("이 검진 기록을 삭제할까요? 입력한 항목도 함께 삭제됩니다.")) return;
+    submitting.current = true;
+    setBusy("delete");
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("checkup_records")
+      .delete()
+      .eq("id", record.id);
+    if (error) {
+      setError(error.message);
+      setBusy(null);
+      submitting.current = false;
+      return;
+    }
     router.push("/");
     router.refresh();
   }
 
   const canAddMore = type === "checkup" || items.length === 0;
+  const isEdit = mode === "edit";
 
   return (
     <main className="min-h-screen pb-10">
@@ -159,7 +226,9 @@ export default function RecordForm({
         >
           <ChevronLeft size={24} className="text-ink" />
         </button>
-        <h1 className="text-xl font-bold">검진 기록 추가</h1>
+        <h1 className="text-xl font-bold">
+          {isEdit ? "검진 기록 수정" : "검진 기록 추가"}
+        </h1>
       </header>
 
       <form onSubmit={handleSubmit} className="px-5 space-y-6">
@@ -330,20 +399,29 @@ export default function RecordForm({
 
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy !== null}
           className="w-full py-3.5 rounded-2xl bg-brand text-white font-bold disabled:opacity-50 touch-manipulation"
         >
-          {busy ? "저장 중…" : "기록 저장"}
+          {busy === "save" ? "저장 중…" : isEdit ? "저장" : "기록 저장"}
         </button>
+
+        {isEdit && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={busy !== null}
+            className="w-full py-3 rounded-2xl text-bad font-semibold flex items-center justify-center gap-1.5 active:bg-section disabled:opacity-50 touch-manipulation"
+          >
+            <Trash2 size={16} /> {busy === "delete" ? "삭제 중…" : "기록 삭제"}
+          </button>
+        )}
       </form>
 
       {pickerOpen && (
         <ItemPicker
           definitions={definitions}
           existingCodes={
-            new Set(
-              items.map((i) => i.item_code).filter((c): c is string => !!c)
-            )
+            new Set(items.map((i) => i.item_code).filter((c): c is string => !!c))
           }
           onPick={addStandard}
           onPickCustom={addCustom}
