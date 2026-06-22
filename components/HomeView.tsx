@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, ChevronRight, Bell, User, Pencil } from "lucide-react";
+import { Plus, ChevronRight, Bell, User } from "lucide-react";
 import type { Member, RecordWithItems } from "@/lib/types";
 
 export type { RecordWithItems };
@@ -155,18 +155,7 @@ export default function HomeView({
 
           {/* 최근 검진 */}
           <section className="px-5 pt-7">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-bold">{active?.name}님 최근 검진</h2>
-              {active && (
-                <Link
-                  href={`/members/${active.id}`}
-                  prefetch
-                  className="text-sm font-medium flex items-center gap-1 text-sub touch-manipulation"
-                >
-                  <Pencil size={13} /> 정보 수정
-                </Link>
-              )}
-            </div>
+            <h2 className="text-lg font-bold mb-3">{active?.name}님 최근 검진</h2>
 
             {latest ? (
               <Link
