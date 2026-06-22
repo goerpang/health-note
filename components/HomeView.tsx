@@ -160,6 +160,7 @@ export default function HomeView({
               {active && (
                 <Link
                   href={`/members/${active.id}`}
+                  prefetch
                   className="text-sm font-medium flex items-center gap-1 text-sub touch-manipulation"
                 >
                   <Pencil size={13} /> 정보 수정
