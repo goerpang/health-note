@@ -11,6 +11,11 @@ const EMOJIS = [
   "👴🏻", "👵🏻", "🧒🏻", "🧔🏻", "👱🏻", "👲🏻",
 ];
 
+// 로컬 기준 오늘 (YYYY-MM-DD)
+function todayStr() {
+  return new Date().toLocaleDateString("sv-SE");
+}
+
 export default function MemberForm({
   mode,
   familyId,
@@ -41,6 +46,10 @@ export default function MemberForm({
     }
     if (!birthDate) {
       setError("생년월일을 입력해주세요");
+      return;
+    }
+    if (birthDate > todayStr()) {
+      setError("생년월일은 미래일 수 없어요");
       return;
     }
 
@@ -177,6 +186,7 @@ export default function MemberForm({
           <input
             type="date"
             value={birthDate ?? ""}
+            max={todayStr()}
             onChange={(e) => setBirthDate(e.target.value)}
             className="w-full mt-2 px-4 min-h-[56px] rounded-2xl bg-section text-ink text-base outline-none focus:ring-2 focus:ring-brand"
           />

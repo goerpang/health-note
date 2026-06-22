@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, X, Plus, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import ItemPicker from "@/components/ItemPicker";
+import { classifyValue } from "@/lib/itemRanges";
 import type { Member, ItemDefinition, RecordWithItems } from "@/lib/types";
 
 type FormItem = {
@@ -14,6 +15,7 @@ type FormItem = {
   value: string;
   unit: string;
   is_abnormal: boolean;
+  manualAbnormal?: boolean; // 사용자가 직접 정상/이상을 바꿨는지 (자동 판정 중단)
   normal_range?: string | null;
 };
 
@@ -22,16 +24,25 @@ function todayStr() {
   return new Date().toLocaleDateString("sv-SE");
 }
 
+// 단위가 있는 항목은 숫자 값으로 간주 (예: mg/dL, mmHg, T-score)
+function isNumericUnit(unit: string) {
+  return unit.trim() !== "";
+}
+const NUM_PARTIAL = /^-?\d*\.?\d*$/; // 입력 도중 허용 (예: "-", "12.")
+const NUM_FULL = /^-?\d+(\.\d+)?$/; // 제출 시 완전한 숫자
+
 export default function RecordForm({
   members,
   definitions,
   initialMemberId,
+  defaultHospital,
   mode = "create",
   record,
 }: {
   members: Member[];
   definitions: ItemDefinition[];
   initialMemberId?: string;
+  defaultHospital?: string;
   mode?: "create" | "edit";
   record?: RecordWithItems;
 }) {
@@ -53,7 +64,9 @@ export default function RecordForm({
       ""
   );
   const [recordDate, setRecordDate] = useState(record?.record_date ?? todayStr());
-  const [hospital, setHospital] = useState(record?.hospital ?? "");
+  const [hospital, setHospital] = useState(
+    record?.hospital ?? defaultHospital ?? ""
+  );
   const [notes, setNotes] = useState(record?.notes ?? "");
   const [items, setItems] = useState<FormItem[]>(() =>
     (record?.checkup_items ?? []).map((it) => ({
@@ -71,6 +84,19 @@ export default function RecordForm({
   const [busy, setBusy] = useState<null | "save" | "delete">(null);
   const [error, setError] = useState<string | null>(null);
   const submitting = useRef(false);
+
+  const memberGender = members.find((m) => m.id === memberId)?.gender ?? null;
+
+  // 값 입력 처리: 숫자 항목은 숫자만 허용 + 표준범위로 정상/이상 자동 판정
+  function onValueChange(it: FormItem, v: string) {
+    if (isNumericUnit(it.unit) && v !== "" && !NUM_PARTIAL.test(v)) return;
+    const patch: Partial<FormItem> = { value: v };
+    if (!it.manualAbnormal) {
+      const verdict = classifyValue(it.item_code, v, memberGender);
+      if (verdict) patch.is_abnormal = verdict === "abnormal";
+    }
+    updateItem(it.key, patch);
+  }
 
   function changeType(t: "checkup" | "single") {
     setType(t);
@@ -117,9 +143,16 @@ export default function RecordForm({
     if (submitting.current) return;
     if (!memberId) return setError("구성원을 선택해주세요");
     if (!recordDate) return setError("검진 날짜를 입력해주세요");
+    if (recordDate > todayStr()) return setError("미래 날짜는 선택할 수 없어요");
+    if (!hospital.trim()) return setError("병원을 입력해주세요");
     if (items.length === 0) return setError("검사 항목을 1개 이상 추가해주세요");
     if (items.some((it) => !it.value.trim()))
       return setError("각 항목의 결과 값을 입력해주세요");
+    const badNum = items.find(
+      (it) => isNumericUnit(it.unit) && !NUM_FULL.test(it.value.trim())
+    );
+    if (badNum)
+      return setError(`'${badNum.item_name}' 항목엔 숫자만 입력할 수 있어요`);
 
     submitting.current = true;
     setBusy("save");
@@ -300,6 +333,7 @@ export default function RecordForm({
           <input
             type="date"
             value={recordDate}
+            max={todayStr()}
             onChange={(e) => setRecordDate(e.target.value)}
             className="w-full mt-2 px-4 min-h-[56px] rounded-2xl bg-section text-ink text-base outline-none focus:ring-2 focus:ring-brand"
           />
@@ -307,13 +341,25 @@ export default function RecordForm({
 
         {/* 병원 */}
         <div>
-          <label className="text-sm font-semibold text-sub">병원 (선택)</label>
-          <input
-            value={hospital}
-            onChange={(e) => setHospital(e.target.value)}
-            placeholder="예: 서울대병원 건강검진센터"
-            className="w-full mt-2 px-4 py-3.5 rounded-2xl bg-section text-ink placeholder:text-sub outline-none focus:ring-2 focus:ring-brand"
-          />
+          <label className="text-sm font-semibold text-sub">병원</label>
+          <div className="relative mt-2">
+            <input
+              value={hospital}
+              onChange={(e) => setHospital(e.target.value)}
+              placeholder="예: 서울대병원 건강검진센터"
+              className="w-full px-4 py-3.5 pr-11 rounded-2xl bg-section text-ink placeholder:text-sub outline-none focus:ring-2 focus:ring-brand"
+            />
+            {hospital && (
+              <button
+                type="button"
+                onClick={() => setHospital("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white flex items-center justify-center text-sub touch-manipulation"
+                aria-label="병원 지우기"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* 항목 */}
@@ -345,8 +391,9 @@ export default function RecordForm({
                 <div className="flex items-center gap-2 mt-3">
                   <input
                     value={it.value}
-                    onChange={(e) => updateItem(it.key, { value: e.target.value })}
-                    placeholder="결과 값"
+                    inputMode={isNumericUnit(it.unit) ? "decimal" : "text"}
+                    onChange={(e) => onValueChange(it, e.target.value)}
+                    placeholder={isNumericUnit(it.unit) ? "숫자 입력" : "결과 값"}
                     className="flex-1 px-3 py-2.5 rounded-xl bg-white text-ink outline-none focus:ring-2 focus:ring-brand text-sm"
                   />
                   <input
@@ -358,7 +405,12 @@ export default function RecordForm({
                 </div>
                 <button
                   type="button"
-                  onClick={() => updateItem(it.key, { is_abnormal: !it.is_abnormal })}
+                  onClick={() =>
+                    updateItem(it.key, {
+                      is_abnormal: !it.is_abnormal,
+                      manualAbnormal: true,
+                    })
+                  }
                   className="mt-2 text-[11px] font-bold px-2.5 py-1 rounded-md touch-manipulation"
                   style={{
                     background: it.is_abnormal ? "#FEE2E2" : "#DCFCE7",
