@@ -190,6 +190,9 @@ export default function MemberForm({
             onChange={(e) => setBirthDate(e.target.value)}
             className="w-full mt-2 px-4 min-h-[56px] rounded-2xl bg-section text-ink text-base outline-none focus:ring-2 focus:ring-brand"
           />
+          {birthDate && birthDate > todayStr() && (
+            <p className="text-xs text-bad mt-1">생년월일은 미래일 수 없어요</p>
+          )}
         </div>
 
         {error && <p className="text-sm text-bad">{error}</p>}

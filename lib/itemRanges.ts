@@ -81,3 +81,15 @@ export function classifyValue(
 
   return evalSimple(simple, v) ? "normal" : "abnormal";
 }
+
+// 0 또는 음수가 정상값으로 허용되는 항목인지 (예: 골밀도 T-score)
+// 직접입력/범위 미상 항목은 알 수 없으므로 허용(true)
+export function allowsNonPositive(itemCode: string | null): boolean {
+  if (!itemCode) return true;
+  const rule = RANGES[itemCode];
+  if (!rule) return true;
+  const check = (r: SimpleRule) =>
+    (r.kind === "min" && r.low <= 0) || (r.kind === "between" && r.low <= 0);
+  if (rule.kind === "byGender") return check(rule.M) || check(rule.F);
+  return check(rule);
+}

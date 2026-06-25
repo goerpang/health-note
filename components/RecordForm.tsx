@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, X, Plus, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import ItemPicker from "@/components/ItemPicker";
-import { classifyValue } from "@/lib/itemRanges";
+import { classifyValue, allowsNonPositive } from "@/lib/itemRanges";
 import type { Member, ItemDefinition, RecordWithItems } from "@/lib/types";
 
 type FormItem = {
@@ -83,7 +83,9 @@ export default function RecordForm({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [busy, setBusy] = useState<null | "save" | "delete">(null);
   const [error, setError] = useState<string | null>(null);
+  const [invalidKeys, setInvalidKeys] = useState<Set<number>>(new Set());
   const submitting = useRef(false);
+  const valueRefs = useRef(new Map<number, HTMLInputElement | null>());
 
   const memberGender = members.find((m) => m.id === memberId)?.gender ?? null;
 
@@ -96,6 +98,14 @@ export default function RecordForm({
       if (verdict) patch.is_abnormal = verdict === "abnormal";
     }
     updateItem(it.key, patch);
+    // 값을 채우면 빨간 표시 해제
+    if (v.trim() && invalidKeys.has(it.key)) {
+      setInvalidKeys((prev) => {
+        const n = new Set(prev);
+        n.delete(it.key);
+        return n;
+      });
+    }
   }
 
   function changeType(t: "checkup" | "single") {
@@ -146,13 +156,32 @@ export default function RecordForm({
     if (recordDate > todayStr()) return setError("미래 날짜는 선택할 수 없어요");
     if (!hospital.trim()) return setError("병원을 입력해주세요");
     if (items.length === 0) return setError("검사 항목을 1개 이상 추가해주세요");
-    if (items.some((it) => !it.value.trim()))
-      return setError("각 항목의 결과 값을 입력해주세요");
+
+    // 빈 값: 해당 칸을 빨갛게 + 첫 빈 칸으로 포커스/스크롤
+    const emptyKeys = items.filter((it) => !it.value.trim()).map((it) => it.key);
+    if (emptyKeys.length) {
+      setInvalidKeys(new Set(emptyKeys));
+      setError(null);
+      const el = valueRefs.current.get(emptyKeys[0]);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      el?.focus({ preventScroll: true });
+      return;
+    }
+    setInvalidKeys(new Set());
+
     const badNum = items.find(
       (it) => isNumericUnit(it.unit) && !NUM_FULL.test(it.value.trim())
     );
     if (badNum)
       return setError(`'${badNum.item_name}' 항목엔 숫자만 입력할 수 있어요`);
+    const zeroItem = items.find(
+      (it) =>
+        isNumericUnit(it.unit) &&
+        parseFloat(it.value) === 0 &&
+        !allowsNonPositive(it.item_code)
+    );
+    if (zeroItem)
+      return setError(`'${zeroItem.item_name}' 항목에 0은 입력할 수 없어요`);
 
     submitting.current = true;
     setBusy("save");
@@ -337,6 +366,9 @@ export default function RecordForm({
             onChange={(e) => setRecordDate(e.target.value)}
             className="w-full mt-2 px-4 min-h-[56px] rounded-2xl bg-section text-ink text-base outline-none focus:ring-2 focus:ring-brand"
           />
+          {recordDate > todayStr() && (
+            <p className="text-xs text-bad mt-1">미래 날짜는 선택할 수 없어요</p>
+          )}
         </div>
 
         {/* 병원 */}
@@ -390,11 +422,18 @@ export default function RecordForm({
                 </div>
                 <div className="flex items-center gap-2 mt-3">
                   <input
+                    ref={(el) => {
+                      valueRefs.current.set(it.key, el);
+                    }}
                     value={it.value}
                     inputMode={isNumericUnit(it.unit) ? "decimal" : "text"}
                     onChange={(e) => onValueChange(it, e.target.value)}
                     placeholder={isNumericUnit(it.unit) ? "숫자 입력" : "결과 값"}
-                    className="flex-1 px-3 py-2.5 rounded-xl bg-white text-ink outline-none focus:ring-2 focus:ring-brand text-sm"
+                    className={`flex-1 px-3 py-2.5 rounded-xl bg-white text-ink outline-none text-sm ${
+                      invalidKeys.has(it.key)
+                        ? "ring-2 ring-bad"
+                        : "focus:ring-2 focus:ring-brand"
+                    }`}
                   />
                   <input
                     value={it.unit}
@@ -403,6 +442,9 @@ export default function RecordForm({
                     className="w-20 px-3 py-2.5 rounded-xl bg-white text-ink outline-none focus:ring-2 focus:ring-brand text-sm"
                   />
                 </div>
+                {invalidKeys.has(it.key) && (
+                  <p className="text-xs text-bad mt-1.5">결과 값을 입력해주세요</p>
+                )}
                 <button
                   type="button"
                   onClick={() =>
