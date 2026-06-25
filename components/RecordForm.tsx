@@ -88,7 +88,8 @@ export default function RecordForm({
   const submitting = useRef(false);
   const valueRefs = useRef(new Map<number, HTMLInputElement | null>());
 
-  const memberGender = members.find((m) => m.id === memberId)?.gender ?? null;
+  const activeMember = members.find((m) => m.id === memberId) ?? null;
+  const memberGender = activeMember?.gender ?? null;
 
   // 새로고침/탭 닫기/주소 이동 시 미저장 경고
   useEffect(() => {
@@ -333,9 +334,16 @@ export default function RecordForm({
         >
           <ChevronLeft size={24} className="text-ink" />
         </button>
-        <h1 className="text-xl font-bold">
-          {isEdit ? "검진 기록 수정" : "검진 기록 추가"}
-        </h1>
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold leading-tight">
+            {isEdit ? "검진 기록 수정" : "검진 기록 추가"}
+          </h1>
+          {activeMember && (
+            <p className="text-sm text-sub mt-0.5">
+              {activeMember.emoji ?? "🙂"} {activeMember.name}
+            </p>
+          )}
+        </div>
       </header>
 
       <form onSubmit={handleSubmit} className="px-5 space-y-6">
@@ -366,28 +374,6 @@ export default function RecordForm({
               ? "여러 항목을 한 번에 기록해요."
               : "항목 하나만 빠르게 기록해요."}
           </p>
-        </div>
-
-        {/* 구성원 (읽기 전용) */}
-        <div>
-          <label className="text-sm font-semibold text-sub">구성원</label>
-          <div className="mt-2">
-            {(() => {
-              const m = members.find((x) => x.id === memberId);
-              if (!m) return null;
-              return (
-                <div
-                  className="inline-flex items-center gap-2 rounded-2xl bg-brand-soft"
-                  style={{ padding: "11px 16px" }}
-                >
-                  <span className="text-lg">{m.emoji ?? "🙂"}</span>
-                  <span className="text-sm font-bold" style={{ color: "#1D4ED8" }}>
-                    {m.name}
-                  </span>
-                </div>
-              );
-            })()}
-          </div>
         </div>
 
         {/* 날짜 */}
