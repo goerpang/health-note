@@ -1,23 +1,26 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { X, Search, Plus } from "lucide-react";
+import { X, Search, Plus, Check } from "lucide-react";
 import type { ItemDefinition } from "@/lib/types";
 
 export default function ItemPicker({
   definitions,
   existingCodes,
+  multi,
   onPick,
+  onPickMany,
   onPickCustom,
   onClose,
 }: {
   definitions: ItemDefinition[];
   existingCodes: Set<string>;
+  multi: boolean; // true면 여러 개 선택 후 한 번에 추가 (건강검진)
   onPick: (def: ItemDefinition) => void;
+  onPickMany: (defs: ItemDefinition[]) => void;
   onPickCustom: (name: string, unit: string) => void;
   onClose: () => void;
 }) {
-  // 카테고리 순서 유지 (definitions는 sort_order로 정렬돼 들어옴)
   const categories = useMemo(() => {
     const seen: string[] = [];
     for (const d of definitions) if (!seen.includes(d.category)) seen.push(d.category);
@@ -29,12 +32,32 @@ export default function ItemPicker({
   const [customMode, setCustomMode] = useState(false);
   const [customName, setCustomName] = useState("");
   const [customUnit, setCustomUnit] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const list = useMemo(() => {
     const q = query.trim();
     if (q) return definitions.filter((d) => d.item_name.includes(q));
     return definitions.filter((d) => d.category === cat);
   }, [definitions, cat, query]);
+
+  function toggle(code: string) {
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(code)) n.delete(code);
+      else n.add(code);
+      return n;
+    });
+  }
+
+  function confirmMany() {
+    const defs = definitions.filter((d) => selected.has(d.item_code));
+    if (defs.length) onPickMany(defs);
+  }
+
+  function onItemClick(d: ItemDefinition) {
+    if (multi) toggle(d.item_code);
+    else onPick(d); // 단일검사: 바로 선택
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col max-w-app mx-auto">
@@ -90,7 +113,7 @@ export default function ItemPicker({
             </div>
           </div>
 
-          {/* 카테고리 탭 (검색 중엔 숨김) */}
+          {/* 카테고리 탭 */}
           {!query.trim() && (
             <div className="px-5 pb-2 flex gap-2 overflow-x-auto no-scrollbar">
               {categories.map((c) => (
@@ -114,12 +137,17 @@ export default function ItemPicker({
             <div className="space-y-2 pt-1">
               {list.map((d) => {
                 const added = existingCodes.has(d.item_code);
+                const on = selected.has(d.item_code);
                 return (
                   <button
                     key={d.item_code}
                     disabled={added}
-                    onClick={() => onPick(d)}
-                    className="w-full text-left p-3.5 rounded-2xl bg-section flex items-center justify-between disabled:opacity-40 touch-manipulation active:opacity-70"
+                    onClick={() => onItemClick(d)}
+                    className="w-full text-left p-3.5 rounded-2xl flex items-center justify-between disabled:opacity-40 touch-manipulation active:opacity-70"
+                    style={{
+                      background: on ? "#EFF6FF" : "#F8F9FB",
+                      outline: on ? "2px solid #3B82F6" : "none",
+                    }}
                   >
                     <div className="min-w-0">
                       <p className="text-sm font-semibold">{d.item_name}</p>
@@ -131,6 +159,16 @@ export default function ItemPicker({
                     </div>
                     {added ? (
                       <span className="text-xs text-sub shrink-0">추가됨</span>
+                    ) : multi ? (
+                      <span
+                        className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                        style={{
+                          background: on ? "#3B82F6" : "#E5E9F0",
+                          color: "#fff",
+                        }}
+                      >
+                        {on && <Check size={15} />}
+                      </span>
                     ) : (
                       <Plus size={18} className="text-brand shrink-0" />
                     )}
@@ -148,7 +186,7 @@ export default function ItemPicker({
       )}
 
       {/* 하단 액션 */}
-      <div className="px-5 py-3 border-t border-line">
+      <div className="px-5 py-3 border-t border-line space-y-2">
         {customMode ? (
           <div className="flex gap-2">
             <button
@@ -169,12 +207,23 @@ export default function ItemPicker({
             </button>
           </div>
         ) : (
-          <button
-            onClick={() => setCustomMode(true)}
-            className="w-full py-3 rounded-2xl bg-section font-semibold text-sm flex items-center justify-center gap-1.5 touch-manipulation"
-          >
-            <Plus size={16} /> 목록에 없어요 (직접 입력)
-          </button>
+          <>
+            {multi && (
+              <button
+                onClick={confirmMany}
+                disabled={selected.size === 0}
+                className="w-full py-3 rounded-2xl bg-brand text-white font-bold disabled:opacity-50 touch-manipulation"
+              >
+                {selected.size > 0 ? `${selected.size}개 추가` : "항목을 선택하세요"}
+              </button>
+            )}
+            <button
+              onClick={() => setCustomMode(true)}
+              className="w-full py-3 rounded-2xl bg-section font-semibold text-sm flex items-center justify-center gap-1.5 touch-manipulation"
+            >
+              <Plus size={16} /> 목록에 없어요 (직접 입력)
+            </button>
+          </>
         )}
       </div>
     </div>

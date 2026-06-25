@@ -124,6 +124,21 @@ export default function RecordForm({
     setPickerOpen(false);
   }
 
+  // 여러 항목 한 번에 추가 (건강검진)
+  function addStandardMany(defs: ItemDefinition[]) {
+    const newItems: FormItem[] = defs.map((def) => ({
+      key: keyRef.current++,
+      item_code: def.item_code,
+      item_name: def.item_name,
+      value: "",
+      unit: def.unit ?? "",
+      is_abnormal: false,
+      normal_range: def.normal_range,
+    }));
+    setItems((prev) => [...prev, ...newItems]);
+    setPickerOpen(false);
+  }
+
   function addCustom(name: string, unit: string) {
     const it: FormItem = {
       key: keyRef.current++,
@@ -528,7 +543,9 @@ export default function RecordForm({
           existingCodes={
             new Set(items.map((i) => i.item_code).filter((c): c is string => !!c))
           }
+          multi={type === "checkup"}
           onPick={addStandard}
+          onPickMany={addStandardMany}
           onPickCustom={addCustom}
           onClose={() => setPickerOpen(false)}
         />
