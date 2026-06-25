@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, X, Plus, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -84,10 +84,27 @@ export default function RecordForm({
   const [busy, setBusy] = useState<null | "save" | "delete">(null);
   const [error, setError] = useState<string | null>(null);
   const [invalidKeys, setInvalidKeys] = useState<Set<number>>(new Set());
+  const [dirty, setDirty] = useState(false); // 저장 안 한 변경 있는지
   const submitting = useRef(false);
   const valueRefs = useRef(new Map<number, HTMLInputElement | null>());
 
   const memberGender = members.find((m) => m.id === memberId)?.gender ?? null;
+
+  // 새로고침/탭 닫기/주소 이동 시 미저장 경고
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
+  function handleBack() {
+    if (dirty && !confirm("입력 중인 내용이 저장되지 않았어요. 나가시겠어요?")) return;
+    router.back();
+  }
 
   // 값 입력 처리: 숫자 항목은 숫자만 허용 + 표준범위로 정상/이상 자동 판정
   function onValueChange(it: FormItem, v: string) {
@@ -107,8 +124,14 @@ export default function RecordForm({
   }
 
   function changeType(t: "checkup" | "single") {
+    if (t === type) return;
+    if (t === "single" && items.length > 1) {
+      if (!confirm("단일검사로 바꾸면 첫 항목만 남고 나머지는 지워져요. 계속할까요?"))
+        return;
+      setItems((prev) => prev.slice(0, 1));
+    }
     setType(t);
-    if (t === "single") setItems((prev) => prev.slice(0, 1));
+    setDirty(true);
   }
 
   function addStandard(def: ItemDefinition) {
@@ -122,6 +145,7 @@ export default function RecordForm({
       normal_range: def.normal_range,
     };
     setItems((prev) => (type === "single" ? [it] : [...prev, it]));
+    setDirty(true);
     setPickerOpen(false);
   }
 
@@ -137,6 +161,7 @@ export default function RecordForm({
       normal_range: def.normal_range,
     }));
     setItems((prev) => [...prev, ...newItems]);
+    setDirty(true);
     setPickerOpen(false);
   }
 
@@ -151,13 +176,16 @@ export default function RecordForm({
       normal_range: null,
     };
     setItems((prev) => (type === "single" ? [it] : [...prev, it]));
+    setDirty(true);
     setPickerOpen(false);
   }
 
   function updateItem(key: number, patch: Partial<FormItem>) {
+    setDirty(true);
     setItems((prev) => prev.map((it) => (it.key === key ? { ...it, ...patch } : it)));
   }
   function removeItem(key: number) {
+    setDirty(true);
     setItems((prev) => prev.filter((it) => it.key !== key));
   }
 
@@ -299,7 +327,7 @@ export default function RecordForm({
       {/* 헤더 */}
       <header className="px-5 pt-7 pb-4 flex items-center gap-3">
         <button
-          onClick={() => router.back()}
+          onClick={handleBack}
           className="w-10 h-10 -ml-2 rounded-full flex items-center justify-center active:bg-section touch-manipulation"
           aria-label="뒤로"
         >
@@ -369,7 +397,10 @@ export default function RecordForm({
             type="date"
             value={recordDate}
             max={todayStr()}
-            onChange={(e) => setRecordDate(e.target.value)}
+            onChange={(e) => {
+              setRecordDate(e.target.value);
+              setDirty(true);
+            }}
             className="w-full mt-2 px-4 min-h-[56px] rounded-2xl bg-section text-ink text-base outline-none focus:ring-2 focus:ring-brand"
           />
           {recordDate > todayStr() && (
@@ -383,7 +414,10 @@ export default function RecordForm({
           <div className="relative mt-2">
             <input
               value={hospital}
-              onChange={(e) => setHospital(e.target.value)}
+              onChange={(e) => {
+                setHospital(e.target.value);
+                setDirty(true);
+              }}
               placeholder="예: 서울대병원 건강검진센터"
               className="w-full px-4 py-3.5 pr-11 rounded-2xl bg-section text-ink placeholder:text-sub outline-none focus:ring-2 focus:ring-brand"
             />
@@ -498,7 +532,10 @@ export default function RecordForm({
           <label className="text-sm font-semibold text-sub">메모 (선택)</label>
           <textarea
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={(e) => {
+              setNotes(e.target.value);
+              setDirty(true);
+            }}
             rows={3}
             placeholder="특이사항, 의사 소견 등"
             className="w-full mt-2 px-4 py-3.5 rounded-2xl bg-section text-ink placeholder:text-sub outline-none focus:ring-2 focus:ring-brand resize-none"
