@@ -30,12 +30,18 @@ export default async function NewRecordPage({
   // 구성원이 없으면 먼저 구성원부터 추가
   if (!members || members.length === 0) redirect("/members/new");
 
-  // 표준항목 + 가장 최근에 입력한 병원(있으면 기본값으로) 병렬 조회
+  // 대상 구성원 결정 (잘못된 파라미터면 첫 구성원)
+  const memberList = members as Member[];
+  const targetMemberId =
+    memberList.find((m) => m.id === searchParams.member)?.id ?? memberList[0].id;
+
+  // 표준항목 + "해당 구성원"의 가장 최근 병원(기본값) 병렬 조회
   const [{ data: definitions }, { data: lastRec }] = await Promise.all([
     supabase.from("item_definitions").select("*").order("sort_order", { ascending: true }),
     supabase
       .from("checkup_records")
       .select("hospital")
+      .eq("member_id", targetMemberId)
       .not("hospital", "is", null)
       .order("record_date", { ascending: false })
       .order("created_at", { ascending: false })
@@ -45,9 +51,9 @@ export default async function NewRecordPage({
 
   return (
     <RecordForm
-      members={members as Member[]}
+      members={memberList}
       definitions={(definitions as ItemDefinition[]) ?? []}
-      initialMemberId={searchParams.member}
+      initialMemberId={targetMemberId}
       defaultHospital={lastRec?.hospital ?? undefined}
     />
   );

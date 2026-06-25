@@ -56,7 +56,8 @@ export default function RecordForm({
   }, [definitions]);
 
   const [type, setType] = useState<"checkup" | "single">(record?.type ?? "checkup");
-  const [memberId, setMemberId] = useState(
+  // 구성원은 들어올 때 정해짐(읽기 전용) — 입력 중엔 바꾸지 않음
+  const [memberId] = useState(
     record?.member_id ??
       members.find((m) => m.id === initialMemberId)?.id ??
       members[0]?.id ??
@@ -339,36 +340,25 @@ export default function RecordForm({
           </p>
         </div>
 
-        {/* 구성원 */}
+        {/* 구성원 (읽기 전용) */}
         <div>
           <label className="text-sm font-semibold text-sub">구성원</label>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar mt-2 pb-1">
-            {members.map((m) => {
-              const on = m.id === memberId;
+          <div className="mt-2">
+            {(() => {
+              const m = members.find((x) => x.id === memberId);
+              if (!m) return null;
               return (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setMemberId(m.id)}
-                  className="flex items-center gap-2 rounded-2xl shrink-0 touch-manipulation"
-                  style={{
-                    background: on ? "#EFF6FF" : "#F8F9FB",
-                    padding: "11px 16px",
-                    transform: on ? "scale(1.05)" : "scale(1)",
-                  }}
+                <div
+                  className="inline-flex items-center gap-2 rounded-2xl bg-brand-soft"
+                  style={{ padding: "11px 16px" }}
                 >
-                  <span className="text-lg" style={{ opacity: on ? 1 : 0.55 }}>
-                    {m.emoji ?? "🙂"}
-                  </span>
-                  <span
-                    className="text-sm font-bold"
-                    style={{ color: on ? "#1D4ED8" : "#8B92A0" }}
-                  >
+                  <span className="text-lg">{m.emoji ?? "🙂"}</span>
+                  <span className="text-sm font-bold" style={{ color: "#1D4ED8" }}>
                     {m.name}
                   </span>
-                </button>
+                </div>
               );
-            })}
+            })()}
           </div>
         </div>
 

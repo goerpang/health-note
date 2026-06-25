@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Plus, ChevronRight, Bell, User } from "lucide-react";
 import type { Member, RecordWithItems } from "@/lib/types";
@@ -26,6 +26,20 @@ export default function HomeView({
   const [selectedId, setSelectedId] = useState<string | null>(
     members[0]?.id ?? null
   );
+
+  // 마지막으로 본 구성원을 세션에 기억 (기록 추가 후 돌아와도 유지)
+  useEffect(() => {
+    const saved = sessionStorage.getItem("hn_member");
+    if (saved && members.some((m) => m.id === saved)) setSelectedId(saved);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function selectMember(id: string) {
+    setSelectedId(id);
+    try {
+      sessionStorage.setItem("hn_member", id);
+    } catch {}
+  }
 
   // 선택된 구성원 (목록이 바뀌어도 안전하게 폴백)
   const active = members.find((m) => m.id === selectedId) ?? members[0] ?? null;
@@ -68,7 +82,7 @@ export default function HomeView({
               return (
                 <button
                   key={m.id}
-                  onClick={() => setSelectedId(m.id)}
+                  onClick={() => selectMember(m.id)}
                   className="flex items-center gap-2 rounded-2xl shrink-0 transition-transform touch-manipulation active:opacity-70"
                   style={{
                     background: isActive ? "#EFF6FF" : "#F8F9FB",
