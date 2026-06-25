@@ -15,7 +15,6 @@ type FormItem = {
   value: string;
   unit: string;
   is_abnormal: boolean;
-  manualAbnormal?: boolean; // 사용자가 직접 정상/이상을 바꿨는지 (자동 판정 중단)
   normal_range?: string | null;
 };
 
@@ -93,10 +92,8 @@ export default function RecordForm({
   function onValueChange(it: FormItem, v: string) {
     if (isNumericUnit(it.unit) && v !== "" && !NUM_PARTIAL.test(v)) return;
     const patch: Partial<FormItem> = { value: v };
-    if (!it.manualAbnormal) {
-      const verdict = classifyValue(it.item_code, v, memberGender);
-      if (verdict) patch.is_abnormal = verdict === "abnormal";
-    }
+    const verdict = classifyValue(it.item_code, v, memberGender);
+    if (verdict) patch.is_abnormal = verdict === "abnormal";
     updateItem(it.key, patch);
     // 값을 채우면 빨간 표시 해제
     if (v.trim() && invalidKeys.has(it.key)) {
@@ -195,6 +192,10 @@ export default function RecordForm({
       hospital: hospital.trim() || null,
       notes: notes.trim() || null,
     };
+    const judge = (it: FormItem) => {
+      const v = classifyValue(it.item_code, it.value, memberGender);
+      return v ? v === "abnormal" : it.is_abnormal;
+    };
     const itemRows = (recordId: string) =>
       items.map((it) => ({
         record_id: recordId,
@@ -202,7 +203,7 @@ export default function RecordForm({
         item_name: it.item_name,
         value: it.value.trim(),
         unit: it.unit.trim() || null,
-        is_abnormal: it.is_abnormal,
+        is_abnormal: judge(it),
       }));
 
     if (mode === "edit" && record) {
@@ -435,32 +436,40 @@ export default function RecordForm({
                         : "focus:ring-2 focus:ring-brand"
                     }`}
                   />
-                  <input
-                    value={it.unit}
-                    onChange={(e) => updateItem(it.key, { unit: e.target.value })}
-                    placeholder="단위"
-                    className="w-20 px-3 py-2.5 rounded-xl bg-white text-ink outline-none focus:ring-2 focus:ring-brand text-sm"
-                  />
+                  {it.item_code ? (
+                    // 기본(표준) 항목은 단위 고정 — 수정 불가
+                    <div className="w-20 px-3 py-2.5 rounded-xl bg-section text-sub text-sm flex items-center justify-center shrink-0">
+                      {it.unit || "-"}
+                    </div>
+                  ) : (
+                    <input
+                      value={it.unit}
+                      onChange={(e) => updateItem(it.key, { unit: e.target.value })}
+                      placeholder="단위"
+                      className="w-20 px-3 py-2.5 rounded-xl bg-white text-ink outline-none focus:ring-2 focus:ring-brand text-sm"
+                    />
+                  )}
                 </div>
                 {invalidKeys.has(it.key) && (
                   <p className="text-xs text-bad mt-1.5">결과 값을 입력해주세요</p>
                 )}
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateItem(it.key, {
-                      is_abnormal: !it.is_abnormal,
-                      manualAbnormal: true,
-                    })
-                  }
-                  className="mt-2 text-[11px] font-bold px-2.5 py-1 rounded-md touch-manipulation"
-                  style={{
-                    background: it.is_abnormal ? "#FEE2E2" : "#DCFCE7",
-                    color: it.is_abnormal ? "#DC2626" : "#16A34A",
-                  }}
-                >
-                  {it.is_abnormal ? "이상" : "정상"} · 눌러서 변경
-                </button>
+                {(() => {
+                  // 정상/이상 자동 판정 결과 표시 (참고용, 누를 수 없음)
+                  const v = classifyValue(it.item_code, it.value, memberGender);
+                  if (!v) return null;
+                  const abn = v === "abnormal";
+                  return (
+                    <span
+                      className="inline-block mt-2 text-[11px] font-bold px-2.5 py-1 rounded-md"
+                      style={{
+                        background: abn ? "#FEE2E2" : "#DCFCE7",
+                        color: abn ? "#DC2626" : "#16A34A",
+                      }}
+                    >
+                      {abn ? "이상" : "정상"}
+                    </span>
+                  );
+                })()}
               </div>
             ))}
 
