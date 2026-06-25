@@ -385,6 +385,8 @@ export default function RecordForm({
             {hospital && (
               <button
                 type="button"
+                // mousedown 기본동작 차단 → 입력칸 포커스 유지(키보드 안 닫힘)
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setHospital("")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white flex items-center justify-center text-sub touch-manipulation"
                 aria-label="병원 지우기"
