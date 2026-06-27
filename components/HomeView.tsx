@@ -12,7 +12,6 @@ function fmtDate(d: string) {
   return d.replaceAll("-", ".");
 }
 
-const RECENT_ITEM_LIMIT = 4;
 
 export default function HomeView({
   familyName,
@@ -48,7 +47,6 @@ export default function HomeView({
   const memberRecords = active
     ? records.filter((r) => r.member_id === active.id)
     : [];
-  const latest = memberRecords[0] ?? null;
 
   return (
     <div className="w-full min-h-screen pb-10 text-ink">
@@ -167,53 +165,9 @@ export default function HomeView({
             </div>
           </div>
 
-          {/* 최근 검진 */}
-          <section className="px-5 pt-7">
-            <h2 className="text-lg font-bold mb-3">{active?.name}님 최근 검진</h2>
-
-            {latest ? (
-              <Link
-                href={`/records/${latest.id}`}
-                prefetch
-                className="block rounded-2xl p-5 bg-section active:opacity-80 touch-manipulation"
-              >
-                <p className="text-xs mb-4 text-sub">
-                  {fmtDate(latest.record_date)} ·{" "}
-                  {latest.hospital ?? "병원 미기재"}
-                </p>
-                <div className="space-y-4">
-                  {latest.checkup_items.slice(0, RECENT_ITEM_LIMIT).map((it) => (
-                    <div key={it.id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <p className="text-sm font-semibold truncate">
-                          {it.item_name}
-                        </p>
-                        <span
-                          className="text-[11px] font-bold px-2 py-0.5 rounded-md shrink-0"
-                          style={{
-                            background: it.is_abnormal ? "#FEE2E2" : "#DCFCE7",
-                            color: it.is_abnormal ? "#DC2626" : "#16A34A",
-                          }}
-                        >
-                          {it.is_abnormal ? "이상" : "정상"}
-                        </span>
-                      </div>
-                      <div className="text-right flex items-baseline gap-1 shrink-0">
-                        <span className="text-2xl font-extrabold text-ink">
-                          {it.value}
-                        </span>
-                        <span className="text-xs text-sub">{it.unit}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {latest.checkup_items.length > RECENT_ITEM_LIMIT && (
-                  <p className="text-xs text-sub mt-4">
-                    외 {latest.checkup_items.length - RECENT_ITEM_LIMIT}개 항목
-                  </p>
-                )}
-              </Link>
-            ) : (
+          {/* 타임라인 */}
+          {memberRecords.length === 0 ? (
+            <div className="px-5 pt-6">
               <div className="rounded-2xl p-8 bg-section flex flex-col items-center text-center">
                 <span className="text-3xl mb-2">🗂️</span>
                 <p className="font-semibold text-sm">아직 검진 기록이 없어요</p>
@@ -225,12 +179,9 @@ export default function HomeView({
                   + 기록 추가하기
                 </Link>
               </div>
-            )}
-          </section>
-
-          {/* 타임라인 */}
-          {memberRecords.length > 0 && (
-            <section className="px-5 pt-7">
+            </div>
+          ) : (
+            <section className="px-5 pt-6">
               <h2 className="text-lg font-bold mb-4">검진 기록</h2>
               <div className="relative pl-6">
                 <div className="absolute left-[5px] top-2 bottom-2 w-0.5 bg-line" />
@@ -276,6 +227,7 @@ export default function HomeView({
           )}
         </>
       )}
+
     </div>
   );
 }
