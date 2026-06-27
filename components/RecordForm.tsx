@@ -124,6 +124,24 @@ export default function RecordForm({
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
 
+  // 항목 선택 모달이 열렸을 때 기기 뒤로가기로 모달만 닫기
+  // (편집 모드에선 RecordView의 편집 레이어와 중첩 → history.state 마커로 최상위만 닫음)
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      if (!(e.state && e.state.picker)) setPickerOpen(false);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  function openPicker() {
+    window.history.pushState({ picker: true }, "");
+    setPickerOpen(true);
+  }
+  function closePicker() {
+    window.history.back();
+  }
+
   function handleBack() {
     if (dirty && !confirm("입력 중인 내용이 저장되지 않았어요. 나가시겠어요?")) return;
     if (onCancelEdit) onCancelEdit();
@@ -171,7 +189,7 @@ export default function RecordForm({
     };
     setItems((prev) => (type === "single" ? [it] : sortItems([...prev, it])));
     setDirty(true);
-    setPickerOpen(false);
+    closePicker();
   }
 
   // 여러 항목 한 번에 추가 (건강검진)
@@ -188,7 +206,7 @@ export default function RecordForm({
     }));
     setItems((prev) => sortItems([...prev, ...newItems]));
     setDirty(true);
-    setPickerOpen(false);
+    closePicker();
   }
 
   function addCustom(name: string, unit: string) {
@@ -204,7 +222,7 @@ export default function RecordForm({
     };
     setItems((prev) => (type === "single" ? [it] : sortItems([...prev, it])));
     setDirty(true);
-    setPickerOpen(false);
+    closePicker();
   }
 
   function updateItem(key: number, patch: Partial<FormItem>) {
@@ -463,7 +481,7 @@ export default function RecordForm({
             {canAddMore && items.length > 0 && (
               <button
                 type="button"
-                onClick={() => setPickerOpen(true)}
+                onClick={openPicker}
                 className="flex items-center gap-1 text-sm font-semibold text-brand px-2 py-1 -mr-2 touch-manipulation active:opacity-70"
               >
                 <Plus size={16} /> 추가
@@ -546,7 +564,7 @@ export default function RecordForm({
             {canAddMore && (
               <button
                 type="button"
-                onClick={() => setPickerOpen(true)}
+                onClick={openPicker}
                 className="w-full py-3.5 rounded-2xl border-2 border-dashed border-line text-sub font-semibold flex items-center justify-center gap-1.5 touch-manipulation active:bg-section"
               >
                 <Plus size={18} />
@@ -603,7 +621,7 @@ export default function RecordForm({
           onPick={addStandard}
           onPickMany={addStandardMany}
           onPickCustom={addCustom}
-          onClose={() => setPickerOpen(false)}
+          onClose={closePicker}
         />
       )}
     </main>

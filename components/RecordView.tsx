@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Pencil, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -27,6 +27,24 @@ export default function RecordView({
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // 편집 진입 시 history 엔트리 추가 → 기기 뒤로가기로 조회 화면 복귀
+  // (편집 안에서 항목 모달이 열려 있으면 모달 레이어만 먼저 닫히도록 마커 확인)
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      if (!(e.state && e.state.recordEdit)) setEditing(false);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  function openEdit() {
+    window.history.pushState({ recordEdit: true }, "");
+    setEditing(true);
+  }
+  function closeEdit() {
+    window.history.back();
+  }
 
   const member = members.find((m) => m.id === record.member_id);
   const memberGender = member?.gender ?? null;
@@ -66,7 +84,7 @@ export default function RecordView({
         record={record}
         members={members}
         definitions={definitions}
-        onCancelEdit={() => setEditing(false)}
+        onCancelEdit={closeEdit}
       />
     );
   }
@@ -93,7 +111,7 @@ export default function RecordView({
           </div>
         </div>
         <button
-          onClick={() => setEditing(true)}
+          onClick={openEdit}
           className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-section text-ink font-semibold text-sm touch-manipulation active:opacity-70"
         >
           <Pencil size={15} />
