@@ -136,7 +136,7 @@ export default function HomeView({
         <>
           {/* 빠른 메뉴 */}
           <div className="px-5 pt-5">
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <Link
                 href={`/records/new${active ? `?member=${active.id}` : ""}`}
                 prefetch
@@ -147,21 +147,28 @@ export default function HomeView({
                 </span>
                 <span className="text-xs font-semibold text-ink">기록 추가</span>
               </Link>
-              {[
-                { label: "항목 검색", emoji: "🔍", bg: "#F0FDF4" },
-                { label: "수치 추이", emoji: "📈", bg: "#FEF3F2" },
-                { label: "결과지", emoji: "📄", bg: "#FFFBEB" },
-              ].map((m) => (
-                <button key={m.label} className="flex flex-col items-center gap-2">
-                  <span
-                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl"
-                    style={{ background: m.bg }}
-                  >
-                    {m.emoji}
-                  </span>
-                  <span className="text-xs font-semibold text-ink">{m.label}</span>
-                </button>
-              ))}
+              <Link
+                href={`/guide${active ? `?member=${active.id}` : ""}`}
+                prefetch
+                className="flex flex-col items-center gap-2 touch-manipulation active:opacity-70"
+              >
+                <span
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl"
+                  style={{ background: "#F0FDF4" }}
+                >
+                  🔍
+                </span>
+                <span className="text-xs font-semibold text-ink">항목 사전</span>
+              </Link>
+              <button className="flex flex-col items-center gap-2">
+                <span
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl"
+                  style={{ background: "#FFFBEB" }}
+                >
+                  📄
+                </span>
+                <span className="text-xs font-semibold text-ink">결과지</span>
+              </button>
             </div>
           </div>
 
