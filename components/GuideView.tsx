@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Search } from "lucide-react";
 import GuideDetail from "@/components/GuideDetail";
@@ -52,6 +52,21 @@ export default function GuideView({
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState<string | null>(null);
   const [openCode, setOpenCode] = useState<string | null>(null);
+
+  // 상세 열 때 history 엔트리 추가 → 기기 뒤로가기로 목록 복귀
+  useEffect(() => {
+    const onPop = () => setOpenCode(null);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  function openDetail(code: string) {
+    window.history.pushState({ guideDetail: true }, "");
+    setOpenCode(code);
+  }
+  function closeDetail() {
+    window.history.back();
+  }
 
   const active = members.find((m) => m.id === memberId) ?? members[0] ?? null;
   const age = active ? ageAt(active.birth_date, today) : null;
@@ -106,7 +121,7 @@ export default function GuideView({
           member={active}
           age={age}
           history={historyByCode.get(openCode) ?? []}
-          onBack={() => setOpenCode(null)}
+          onBack={closeDetail}
         />
       );
     }
@@ -201,7 +216,7 @@ export default function GuideView({
           return (
             <button
               key={d.item_code}
-              onClick={() => setOpenCode(d.item_code)}
+              onClick={() => openDetail(d.item_code)}
               className="w-full text-left p-4 rounded-2xl bg-section flex items-center justify-between gap-3 touch-manipulation active:opacity-70"
             >
               <div className="min-w-0">

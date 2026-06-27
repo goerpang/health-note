@@ -16,7 +16,15 @@ type FormItem = {
   unit: string;
   is_abnormal: boolean;
   normal_range?: string | null;
+  sort_order: number; // 표준항목은 정의 순서, 직접입력은 맨 뒤
 };
+
+const CUSTOM_SORT = 9_999_999; // 직접입력 항목은 표준항목 뒤에 배치
+
+// 기본 순서(정의 sort_order)대로 정렬. 직접입력끼리는 추가한 순서 유지(stable)
+function sortItems(arr: FormItem[]) {
+  return [...arr].sort((a, b) => a.sort_order - b.sort_order);
+}
 
 // 로컬 기준 오늘 날짜 (YYYY-MM-DD)
 function todayStr() {
@@ -57,6 +65,13 @@ export default function RecordForm({
     return m;
   }, [definitions]);
 
+  // 표준항목 코드 → 기본 정렬 순서
+  const sortByCode = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const d of definitions) m.set(d.item_code, d.sort_order);
+    return m;
+  }, [definitions]);
+
   const [type, setType] = useState<"checkup" | "single">(record?.type ?? "checkup");
   // 구성원은 들어올 때 정해짐(읽기 전용) — 입력 중엔 바꾸지 않음
   const [memberId] = useState(
@@ -71,15 +86,20 @@ export default function RecordForm({
   );
   const [notes, setNotes] = useState(record?.notes ?? "");
   const [items, setItems] = useState<FormItem[]>(() =>
-    (record?.checkup_items ?? []).map((it) => ({
-      key: keyRef.current++,
-      item_code: it.item_code,
-      item_name: it.item_name,
-      value: it.value ?? "",
-      unit: it.unit ?? "",
-      is_abnormal: it.is_abnormal,
-      normal_range: it.item_code ? rangeByCode.get(it.item_code) ?? null : null,
-    }))
+    sortItems(
+      (record?.checkup_items ?? []).map((it) => ({
+        key: keyRef.current++,
+        item_code: it.item_code,
+        item_name: it.item_name,
+        value: it.value ?? "",
+        unit: it.unit ?? "",
+        is_abnormal: it.is_abnormal,
+        normal_range: it.item_code ? rangeByCode.get(it.item_code) ?? null : null,
+        sort_order: it.item_code
+          ? sortByCode.get(it.item_code) ?? CUSTOM_SORT
+          : CUSTOM_SORT,
+      }))
+    )
   );
 
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -147,8 +167,9 @@ export default function RecordForm({
       unit: def.unit ?? "",
       is_abnormal: false,
       normal_range: def.normal_range,
+      sort_order: def.sort_order,
     };
-    setItems((prev) => (type === "single" ? [it] : [...prev, it]));
+    setItems((prev) => (type === "single" ? [it] : sortItems([...prev, it])));
     setDirty(true);
     setPickerOpen(false);
   }
@@ -163,8 +184,9 @@ export default function RecordForm({
       unit: def.unit ?? "",
       is_abnormal: false,
       normal_range: def.normal_range,
+      sort_order: def.sort_order,
     }));
-    setItems((prev) => [...prev, ...newItems]);
+    setItems((prev) => sortItems([...prev, ...newItems]));
     setDirty(true);
     setPickerOpen(false);
   }
@@ -178,8 +200,9 @@ export default function RecordForm({
       unit,
       is_abnormal: false,
       normal_range: null,
+      sort_order: CUSTOM_SORT,
     };
-    setItems((prev) => (type === "single" ? [it] : [...prev, it]));
+    setItems((prev) => (type === "single" ? [it] : sortItems([...prev, it])));
     setDirty(true);
     setPickerOpen(false);
   }
@@ -432,9 +455,21 @@ export default function RecordForm({
 
         {/* 항목 */}
         <div>
-          <label className="text-sm font-semibold text-sub">
-            검사 항목 {items.length > 0 && `(${items.length})`}
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-semibold text-sub">
+              검사 항목 {items.length > 0 && `(${items.length})`}
+            </label>
+            {/* 항목이 있을 때만 상단 추가 버튼 노출 (긴 목록에서 스크롤 없이 추가) */}
+            {canAddMore && items.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className="flex items-center gap-1 text-sm font-semibold text-brand px-2 py-1 -mr-2 touch-manipulation active:opacity-70"
+              >
+                <Plus size={16} /> 추가
+              </button>
+            )}
+          </div>
           <div className="space-y-2 mt-2">
             {items.map((it) => (
               <div key={it.key} className="rounded-2xl bg-section p-4">
