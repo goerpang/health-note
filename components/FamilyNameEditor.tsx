@@ -14,6 +14,7 @@ export default function FamilyNameEditor({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  const [savedName, setSavedName] = useState(initialName);
   const [name, setName] = useState(initialName);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +41,7 @@ export default function FamilyNameEditor({
       setError(error.message);
       return;
     }
+    setSavedName(trimmed);
     setEditing(false);
     router.refresh();
   }
@@ -47,10 +49,10 @@ export default function FamilyNameEditor({
   if (!editing) {
     return (
       <div className="rounded-2xl bg-section p-4 flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold truncate">{initialName}</p>
+        <p className="text-sm font-semibold truncate">{savedName}</p>
         <button
           onClick={() => {
-            setName(initialName);
+            setName(savedName);
             setError(null);
             setEditing(true);
           }}
