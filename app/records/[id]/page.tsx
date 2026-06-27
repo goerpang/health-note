@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import RecordForm from "@/components/RecordForm";
+import RecordView from "@/components/RecordView";
 import type { Member, ItemDefinition, RecordWithItems } from "@/lib/types";
 
-export default async function EditRecordPage({
+export default async function RecordDetailPage({
   params,
 }: {
   params: { id: string };
@@ -14,7 +14,6 @@ export default async function EditRecordPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // 기록 + 항목, 가족 연결을 병렬 조회
   const [{ data: record }, { data: link }] = await Promise.all([
     supabase
       .from("checkup_records")
@@ -28,7 +27,7 @@ export default async function EditRecordPage({
       .maybeSingle(),
   ]);
 
-  if (!record) redirect("/"); // RLS상 내 가족 기록이 아니면 안 보임
+  if (!record) redirect("/");
   if (!link) redirect("/onboarding");
 
   const [{ data: members }, { data: definitions }] = await Promise.all([
@@ -44,8 +43,7 @@ export default async function EditRecordPage({
   ]);
 
   return (
-    <RecordForm
-      mode="edit"
+    <RecordView
       record={record as RecordWithItems}
       members={(members as Member[]) ?? []}
       definitions={(definitions as ItemDefinition[]) ?? []}

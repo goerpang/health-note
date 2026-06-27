@@ -37,6 +37,7 @@ export default function RecordForm({
   defaultHospital,
   mode = "create",
   record,
+  onCancelEdit,
 }: {
   members: Member[];
   definitions: ItemDefinition[];
@@ -44,6 +45,7 @@ export default function RecordForm({
   defaultHospital?: string;
   mode?: "create" | "edit";
   record?: RecordWithItems;
+  onCancelEdit?: () => void;
 }) {
   const router = useRouter();
   const keyRef = useRef(1);
@@ -104,7 +106,8 @@ export default function RecordForm({
 
   function handleBack() {
     if (dirty && !confirm("입력 중인 내용이 저장되지 않았어요. 나가시겠어요?")) return;
-    router.back();
+    if (onCancelEdit) onCancelEdit();
+    else router.back();
   }
 
   // 값 입력 처리: 숫자 항목은 숫자만 허용 + 표준범위로 정상/이상 자동 판정
@@ -268,8 +271,13 @@ export default function RecordForm({
       if (oldIds.length)
         await supabase.from("checkup_items").delete().in("id", oldIds);
 
-      router.push("/");
-      router.refresh();
+      if (onCancelEdit) {
+        onCancelEdit();
+        router.refresh();
+      } else {
+        router.push("/");
+        router.refresh();
+      }
       return;
     }
 
