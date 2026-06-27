@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Pencil, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -12,6 +12,8 @@ function formatDate(dateStr: string) {
   const [y, m, d] = dateStr.split("-");
   return `${y}년 ${Number(m)}월 ${Number(d)}일`;
 }
+
+const CUSTOM_SORT = 9_999_999; // 직접입력 항목은 표준항목 뒤 (RecordForm과 동일 기준)
 
 export default function RecordView({
   record,
@@ -28,6 +30,17 @@ export default function RecordView({
 
   const member = members.find((m) => m.id === record.member_id);
   const memberGender = member?.gender ?? null;
+
+  // 편집화면과 동일하게 기본 순서(sort_order)로 정렬 — 직접입력은 맨 뒤
+  const sortedItems = useMemo(() => {
+    const order = new Map<string, number>();
+    for (const d of definitions) order.set(d.item_code, d.sort_order);
+    const so = (code: string | null) =>
+      code ? order.get(code) ?? CUSTOM_SORT : CUSTOM_SORT;
+    return [...(record.checkup_items ?? [])].sort(
+      (a, b) => so(a.item_code) - so(b.item_code)
+    );
+  }, [record.checkup_items, definitions]);
 
   async function handleDelete() {
     if (!confirm("이 검진 기록을 삭제할까요? 입력한 항목도 함께 삭제됩니다.")) return;
@@ -132,7 +145,7 @@ export default function RecordView({
             검사 항목 ({record.checkup_items?.length ?? 0})
           </p>
           <div className="space-y-2">
-            {(record.checkup_items ?? []).map((it) => {
+            {sortedItems.map((it) => {
               const verdict = classifyValue(it.item_code, it.value ?? "", memberGender);
               const abn = verdict ? verdict === "abnormal" : it.is_abnormal;
               const hasVerdict = !!verdict || it.item_code !== null;
